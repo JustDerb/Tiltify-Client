@@ -35,7 +35,7 @@ namespace Tiltify
         }
 
         public async Task<KeyValuePair<int, string>> GeneralRequestAsync(string url, string method,
-            string payload = null, ApiVersion api = ApiVersion.V3, string accessToken = null)
+            string payload = null, ApiVersion api = ApiVersion.Latest, string accessToken = null)
         {
             var request = new HttpRequestMessage
             {
@@ -43,14 +43,22 @@ namespace Tiltify
                 Method = new HttpMethod(method)
             };
 
-            if (string.IsNullOrWhiteSpace(accessToken))
-                throw new InvalidCredentialException("A Client-Id and OAuth token is required to use the Tiltify API.");
-
             request.Headers.Add(HttpRequestHeader.Accept.ToString(), "application/json");
-            request.Headers.Add(HttpRequestHeader.Authorization.ToString(), $"Bearer {FormatOAuth(accessToken)}");
+            if (!string.IsNullOrWhiteSpace(accessToken))
+            {
+                request.Headers.Add(HttpRequestHeader.Authorization.ToString(), $"Bearer {FormatOAuth(accessToken)}");
+            } 
+            else if (method.ToLower() == "get")
+            {
+                // All their GET apis require an oauth token in some regard.
+                throw new InvalidCredentialException("A Client-Id and OAuth token is required to use the Tiltify API.");
+            }
 
             if (payload != null)
+            {
                 request.Content = new StringContent(payload, Encoding.UTF8, "application/json");
+                request.Headers.Add(HttpRequestHeader.ContentType.ToString(), "application/json");
+            }
 
             var response = await _http.SendAsync(request).ConfigureAwait(false);
             if (response.IsSuccessStatusCode)
